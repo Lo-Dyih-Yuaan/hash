@@ -1,0 +1,5 @@
+[package]
+name = "hash"
+version = "0.1.0"
+authors = ["Lo-Dyih-Yuaan"]
+edition = "2018"

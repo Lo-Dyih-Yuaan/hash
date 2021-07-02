@@ -1,0 +1,12 @@
+#[allow(dead_code)] mod word;
+pub mod md2;
+pub mod md4;
+pub mod md5;
+pub mod ripemd;
+pub mod haval;
+pub mod sm3;
+pub mod sha0;
+pub mod sha1;
+pub mod sha2;
+pub mod tiger;
+pub mod stribog;
