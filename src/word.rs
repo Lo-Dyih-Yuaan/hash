@@ -379,9 +379,7 @@ pub struct Word512(u128, u128, u128, u128);
 impl From<&str> for Word512 {
 	fn from(s: &str) -> Self {
 		let s = s.to_ascii_lowercase();
-		if !s.starts_with("0x") {
-			panic!();
-		}
+		aseert!(s.starts_with("0x"));
 		let s = &s[2..];
 		let n0 = u128::from_str_radix(&s[s.len()-32..s.len()], 16).unwrap();
 		let n1 = u128::from_str_radix(&s[s.len()-64..s.len()-32], 16).unwrap();
