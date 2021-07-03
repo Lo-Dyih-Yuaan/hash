@@ -9,7 +9,7 @@ impl Bits {
 	}
 }
 macro_rules! bits_from_unsigned_integer {
-	($t:tt) => {
+	{$t:tt} => {
 		impl From<$t> for Bits {
 			fn from(n: $t) -> Self {
 				let mut n = n;
@@ -21,14 +21,14 @@ macro_rules! bits_from_unsigned_integer {
 				Self(v)
 			}
 		}
-	};
+	}
 }
-bits_from_unsigned_integer!(u8);
-bits_from_unsigned_integer!(u16);
-bits_from_unsigned_integer!(u32);
-bits_from_unsigned_integer!(u64);
-bits_from_unsigned_integer!(u128);
-bits_from_unsigned_integer!(usize);
+bits_from_unsigned_integer!{u8}
+bits_from_unsigned_integer!{u16}
+bits_from_unsigned_integer!{u32}
+bits_from_unsigned_integer!{u64}
+bits_from_unsigned_integer!{u128}
+bits_from_unsigned_integer!{usize}
 impl Shl<usize> for Bits {
 	type Output = Self;
 	fn shl(self, n: usize) -> Self::Output {
@@ -127,250 +127,266 @@ pub trait ConvertBytes<const BYTES: usize>: Sized + Copy {
 	}
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub struct Word32(u32);
-impl From<u32> for Word32 {
-	fn from(n: u32) -> Self {
-		Self(n)
+macro_rules! simple_word_convert_impl {
+	{$t:tt, $u:tt} => {
+		impl From<$u> for $t {
+			fn from(n: $u) -> Self {
+				Self(n)
+			}
+		}
+		impl Into<$u> for $t {
+			fn into(self) -> $u {
+				self.0
+			}
+		}
 	}
 }
-impl Into<u32> for Word32 {
-	fn into(self) -> u32 {
-		self.0
+macro_rules! simple_word_convert_bytes_impl {
+	{$t:tt, $u:tt, $n:literal} => {
+		impl ConvertBytes<$n> for $t {
+			fn from_be_bytes(bytes: [u8; $n]) -> Self {
+				Self($u::from_be_bytes(bytes))
+			}
+			fn from_le_bytes(bytes: [u8; $n]) -> Self {
+				Self($u::from_le_bytes(bytes))
+			}
+			fn to_be_bytes(self) -> [u8; $n] {
+				self.0.to_be_bytes()
+			}
+			fn to_le_bytes(self) -> [u8; $n] {
+				self.0.to_le_bytes()
+			}
+		}
 	}
 }
-impl ConvertBytes<4> for Word32 {
-	fn from_be_bytes(bytes: [u8; 4]) -> Self {
-		Self(u32::from_be_bytes(bytes))
-	}
-	fn from_le_bytes(bytes: [u8; 4]) -> Self {
-		Self(u32::from_le_bytes(bytes))
-	}
-	fn to_be_bytes(self) -> [u8; 4] {
-		self.0.to_be_bytes()
-	}
-	fn to_le_bytes(self) -> [u8; 4] {
-		self.0.to_le_bytes()
-	}
-}
-impl BitAnd for Word32 {
-	type Output = Self;
-	fn bitand(self, rhs: Self) -> Self::Output {
-		Self(self.0 & rhs.0)
-	}
-}
-impl BitAnd<u32> for Word32 {
-	type Output = Self;
-	fn bitand(self, rhs: u32) -> Self::Output {
-		Self(self.0 & rhs)
-	}
-}
-impl BitOr for Word32 {
-	type Output = Self;
-	fn bitor(self, rhs: Self) -> Self::Output {
-		Self(self.0 | rhs.0)
-	}
-}
-impl BitOr<u32> for Word32 {
-	type Output = Self;
-	fn bitor(self, rhs: u32) -> Self::Output {
-		Self(self.0 | rhs)
-	}
-}
-impl BitXor for Word32 {
-	type Output = Self;
-	fn bitxor(self, rhs: Self) -> Self::Output {
-		Self(self.0 ^ rhs.0)
-	}
-}
-impl BitXor<u32> for Word32 {
-	type Output = Self;
-	fn bitxor(self, rhs: u32) -> Self::Output {
-		Self(self.0 ^ rhs)
-	}
-}
-impl Not for Word32 {
-	type Output = Self;
-	fn not(self) -> Self::Output {
-		Self(!self.0)
-	}
-}
-impl Shl<u32> for Word32 {
-	type Output = Self;
-	fn shl(self, n: u32) -> Self::Output {
-		Self(self.0.rotate_left(n))
-	}
-}
-impl Shr<u32> for Word32 {
-	type Output = Self;
-	fn shr(self, n: u32) -> Self::Output {
-		Self(self.0.rotate_right(n))
-	}
-}
-impl Shl<&str> for Word32 {
-	type Output = Self;
-	fn shl(self, n: &str) -> Self::Output {
-		Self(self.0 << n.parse::<u32>().unwrap())
-	}
-}
-impl Shr<&str> for Word32 {
-	type Output = Self;
-	fn shr(self, n: &str) -> Self::Output {
-		Self(self.0 >> n.parse::<u32>().unwrap())
-	}
-}
-impl Add for Word32 {
-	type Output = Self;
-	fn add(self, rhs: Self) -> Self::Output {
-		Self(self.0.wrapping_add(rhs.0))
-	}
-}
-impl Add<u32> for Word32 {
-	type Output = Self;
-	fn add(self, rhs: u32) -> Self::Output {
-		Self(self.0.wrapping_add(rhs))
-	}
-}
-impl Sub for Word32 {
-	type Output = Self;
-	fn sub(self, rhs: Self) -> Self::Output {
-		Self(self.0.wrapping_sub(rhs.0))
-	}
-}
-impl Sub<u32> for Word32 {
-	type Output = Self;
-	fn sub(self, rhs: u32) -> Self::Output {
-		Self(self.0.wrapping_sub(rhs))
-	}
-}
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub struct Word64(u64);
-impl From<u64> for Word64 {
-	fn from(n: u64) -> Self {
-		Self(n)
+macro_rules! simple_word_ops_impl {
+	{$t:tt, $u:tt} => {
+		impl BitAnd for $t {
+			type Output = Self;
+			fn bitand(self, rhs: Self) -> Self::Output {
+				Self(self.0 & rhs.0)
+			}
+		}
+		impl BitAnd<$u> for $t {
+			type Output = Self;
+			fn bitand(self, rhs: $u) -> Self::Output {
+				Self(self.0 & rhs)
+			}
+		}
+		impl BitOr for $t {
+			type Output = Self;
+			fn bitor(self, rhs: Self) -> Self::Output {
+				Self(self.0 | rhs.0)
+			}
+		}
+		impl BitOr<$u> for $t {
+			type Output = Self;
+			fn bitor(self, rhs: $u) -> Self::Output {
+				Self(self.0 | rhs)
+			}
+		}
+		impl BitXor for $t {
+			type Output = Self;
+			fn bitxor(self, rhs: Self) -> Self::Output {
+				Self(self.0 ^ rhs.0)
+			}
+		}
+		impl BitXor<$u> for $t {
+			type Output = Self;
+			fn bitxor(self, rhs: $u) -> Self::Output {
+				Self(self.0 ^ rhs)
+			}
+		}
+		impl Not for $t {
+			type Output = Self;
+			fn not(self) -> Self::Output {
+				Self(!self.0)
+			}
+		}
+		impl Shl<u32> for $t {
+			type Output = Self;
+			fn shl(self, n: u32) -> Self::Output {
+				Self(self.0.rotate_left(n))
+			}
+		}
+		impl Shr<u32> for $t {
+			type Output = Self;
+			fn shr(self, n: u32) -> Self::Output {
+				Self(self.0.rotate_right(n))
+			}
+		}
+		impl Shl<&str> for $t {
+			type Output = Self;
+			fn shl(self, n: &str) -> Self::Output {
+				Self(self.0 << n.parse::<u32>().unwrap())
+			}
+		}
+		impl Shr<&str> for $t {
+			type Output = Self;
+			fn shr(self, n: &str) -> Self::Output {
+				Self(self.0 >> n.parse::<u32>().unwrap())
+			}
+		}
+		impl Add for $t {
+			type Output = Self;
+			fn add(self, rhs: Self) -> Self::Output {
+				Self(self.0.wrapping_add(rhs.0))
+			}
+		}
+		impl Add<$u> for $t {
+			type Output = Self;
+			fn add(self, rhs: $u) -> Self::Output {
+				Self(self.0.wrapping_add(rhs))
+			}
+		}
+		impl Sub for $t {
+			type Output = Self;
+			fn sub(self, rhs: Self) -> Self::Output {
+				Self(self.0.wrapping_sub(rhs.0))
+			}
+		}
+		impl Sub<$u> for $t {
+			type Output = Self;
+			fn sub(self, rhs: $u) -> Self::Output {
+				Self(self.0.wrapping_sub(rhs))
+			}
+		}
+		impl Mul for $t {
+			type Output = Self;
+			fn mul(self, rhs: Self) -> Self::Output {
+				Self(self.0.wrapping_mul(rhs.0))
+			}
+		}
+		impl Mul<$u> for $t {
+			type Output = Self;
+			fn mul(self, rhs: $u) -> Self::Output {
+				Self(self.0.wrapping_mul(rhs))
+			}
+		}
 	}
 }
-impl Into<u64> for Word64 {
-	fn into(self) -> u64 {
-		self.0
-	}
-}
-impl ConvertBytes<8> for Word64 {
-	fn from_be_bytes(bytes: [u8; 8]) -> Self {
-		Self(u64::from_be_bytes(bytes))
-	}
-	fn from_le_bytes(bytes: [u8; 8]) -> Self {
-		Self(u64::from_le_bytes(bytes))
-	}
-	fn to_be_bytes(self) -> [u8; 8] {
-		self.0.to_be_bytes()
-	}
-	fn to_le_bytes(self) -> [u8; 8] {
-		self.0.to_le_bytes()
-	}
-}
-impl BitAnd for Word64 {
-	type Output = Self;
-	fn bitand(self, rhs: Self) -> Self::Output {
-		Self(self.0 & rhs.0)
-	}
-}
-impl BitAnd<u64> for Word64 {
-	type Output = Self;
-	fn bitand(self, rhs: u64) -> Self::Output {
-		Self(self.0 & rhs)
-	}
-}
-impl BitOr for Word64 {
-	type Output = Self;
-	fn bitor(self, rhs: Self) -> Self::Output {
-		Self(self.0 | rhs.0)
-	}
-}
-impl BitOr<u64> for Word64 {
-	type Output = Self;
-	fn bitor(self, rhs: u64) -> Self::Output {
-		Self(self.0 | rhs)
-	}
-}
-impl BitXor for Word64 {
-	type Output = Self;
-	fn bitxor(self, rhs: Self) -> Self::Output {
-		Self(self.0 ^ rhs.0)
-	}
-}
-impl BitXor<u64> for Word64 {
-	type Output = Self;
-	fn bitxor(self, rhs: u64) -> Self::Output {
-		Self(self.0 ^ rhs)
-	}
-}
-impl Not for Word64 {
-	type Output = Self;
-	fn not(self) -> Self::Output {
-		Self(!self.0)
-	}
-}
-impl Shl<u32> for Word64 {
-	type Output = Self;
-	fn shl(self, n: u32) -> Self::Output {
-		Self(self.0.rotate_left(n))
-	}
-}
-impl Shr<u32> for Word64 {
-	type Output = Self;
-	fn shr(self, n: u32) -> Self::Output {
-		Self(self.0.rotate_right(n))
-	}
-}
-impl Shl<&str> for Word64 {
-	type Output = Self;
-	fn shl(self, n: &str) -> Self::Output {
-		Self(self.0 << n.parse::<u32>().unwrap())
-	}
-}
-impl Shr<&str> for Word64 {
-	type Output = Self;
-	fn shr(self, n: &str) -> Self::Output {
-		Self(self.0 >> n.parse::<u32>().unwrap())
-	}
-}
-impl Add for Word64 {
-	type Output = Self;
-	fn add(self, rhs: Self) -> Self::Output {
-		Self(self.0.wrapping_add(rhs.0))
-	}
-}
-impl Add<u64> for Word64 {
-	type Output = Self;
-	fn add(self, rhs: u64) -> Self::Output {
-		Self(self.0.wrapping_add(rhs))
-	}
-}
-impl Sub for Word64 {
-	type Output = Self;
-	fn sub(self, rhs: Self) -> Self::Output {
-		Self(self.0.wrapping_sub(rhs.0))
-	}
-}
-impl Sub<u64> for Word64 {
-	type Output = Self;
-	fn sub(self, rhs: u64) -> Self::Output {
-		Self(self.0.wrapping_sub(rhs))
+macro_rules! create_simple_word {
+	{$t:tt, $u:tt, $n:literal} => {
+		#[derive(PartialEq, Eq, Clone, Copy)]
+		pub struct $t($u);
+		simple_word_convert_impl!{$t, $u}
+		simple_word_convert_bytes_impl!{$t, $u, $n}
+		simple_word_ops_impl!{$t, $u}
 	}
 }
 
-impl Mul for Word64 {
-	type Output = Self;
-	fn mul(self, rhs: Self) -> Self::Output {
-		Self(self.0.wrapping_mul(rhs.0))
+create_simple_word!{Word16, u16, 2}
+create_simple_word!{Word32, u32, 4}
+create_simple_word!{Word64, u64, 8}
+create_simple_word!{Word128, u128, 16}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub struct Word256(u128, u128);
+impl From<&str> for Word256 {
+	fn from(s: &str) -> Self {
+		let s = s.to_ascii_lowercase();
+		assert!(s.starts_with("0x"));
+		let s = &s[2..];
+		let n0 = u128::from_str_radix(&s[s.len()-32..s.len()], 16).unwrap();
+		let n1 = u128::from_str_radix(&s[s.len()-64..s.len()-32], 16).unwrap();
+		Self(n0, n1)
 	}
 }
-impl Mul<u64> for Word64 {
+impl Word256 {
+	pub const fn new(s: &str) -> Self {
+		const TABLE: [i8; 128] = [
+			-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,
+			-1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			-1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+		];
+		macro_rules! hex_parse {
+			(@ $s:expr; $i:expr) => {
+				TABLE[$s[$i] as usize] as u128
+			};
+			(@ $s:expr; $i:expr, $($is:expr),+) => {
+				hex_parse!(@ $s; $($is),+) * 0x10u128 + TABLE[$s[$i] as usize] as u128
+			};
+			($s:expr, $i:literal) => {
+				hex_parse!(@ $s;
+					$i+31, $i+30,
+					$i+29, $i+28, $i+27, $i+26, $i+25, $i+24, $i+23, $i+22, $i+21, $i+20,
+					$i+19, $i+18, $i+17, $i+16, $i+15, $i+14, $i+13, $i+12, $i+11, $i+10,
+					$i+9, $i+8, $i+7, $i+6, $i+5, $i+4, $i+3, $i+2, $i+1, $i
+				)
+			}
+		}
+		Self(
+			hex_parse!(s.as_bytes(), 34),
+			hex_parse!(s.as_bytes(), 2)
+		)
+	}
+}
+impl From<u128> for Word256 {
+	fn from(n: u128) -> Self {
+		Self(n, 0)
+	}
+}
+impl ConvertBytes<32> for Word256 {
+	fn from_be_bytes(bytes: [u8; 32]) -> Self {
+		let mut v: [u8; 16] = [0; 16];
+		v.copy_from_slice(&bytes[0..16]);
+		let n1 = u128::from_be_bytes(v);
+		v.copy_from_slice(&bytes[16..32]);
+		let n0 = u128::from_be_bytes(v);
+		Self(n0, n1)
+	}
+	fn from_le_bytes(bytes: [u8; 32]) -> Self {
+		let mut v: [u8; 16] = [0; 16];
+		v.copy_from_slice(&bytes[0..16]);
+		let n0 = u128::from_le_bytes(v);
+		v.copy_from_slice(&bytes[16..32]);
+		let n1 = u128::from_le_bytes(v);
+		Self(n0, n1)
+	}
+	fn to_be_bytes(self) -> [u8; 32] {
+		let mut result: [u8; 32] = [0; 32];
+		let (v1, v0) = result.split_at_mut(16);
+		v0.copy_from_slice(&self.0.to_be_bytes());
+		v1.copy_from_slice(&self.1.to_be_bytes());
+		result
+	}
+	fn to_le_bytes(self) -> [u8; 32] {
+		let mut result: [u8; 32] = [0; 32];
+		let (v0, v1) = result.split_at_mut(16);
+		v0.copy_from_slice(&self.0.to_le_bytes());
+		v1.copy_from_slice(&self.1.to_le_bytes());
+		result
+	}
+}
+impl BitAnd for Word256 {
 	type Output = Self;
-	fn mul(self, rhs: u64) -> Self::Output {
-		Self(self.0.wrapping_mul(rhs))
+	fn bitand(self, rhs: Self) -> Self::Output {
+		Self(self.0 & rhs.0, self.1 & rhs.1)
+	}
+}
+impl BitOr for Word256 {
+	type Output = Self;
+	fn bitor(self, rhs: Self) -> Self::Output {
+		Self(self.0 | rhs.0, self.1 | rhs.1)
+	}
+}
+impl BitXor for Word256 {
+	type Output = Self;
+	fn bitxor(self, rhs: Self) -> Self::Output {
+		Self(self.0 ^ rhs.0, self.1 ^ rhs.1)
+	}
+}
+impl Add for Word256 {
+	type Output = Self;
+	fn add(self, rhs: Self) -> Self::Output {
+		let (n0, of) = self.0.overflowing_add(rhs.0);
+		let n1 = self.1.wrapping_add(rhs.1).wrapping_add(of as u128);
+		Self(n0, n1)
 	}
 }
 
