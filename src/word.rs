@@ -129,6 +129,11 @@ pub trait ConvertBytes<const BYTES: usize>: Sized + Copy {
 
 macro_rules! simple_word_convert_impl {
 	{$t:tt, $u:tt} => {
+		impl $t {
+			pub const fn new(n: $u) -> Self {
+				Self(n)
+			}
+		}
 		impl From<$u> for $t {
 			fn from(n: $u) -> Self {
 				Self(n)
