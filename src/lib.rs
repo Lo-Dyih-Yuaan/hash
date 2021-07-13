@@ -9,4 +9,5 @@ pub mod sha0;
 pub mod sha1;
 pub mod sha2;
 pub mod tiger;
+pub mod gost94;
 pub mod stribog;
