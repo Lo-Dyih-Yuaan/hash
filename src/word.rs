@@ -53,19 +53,29 @@ impl Shr<usize> for Bits {
 	}
 }
 
-pub trait ConvertBytes<const BYTES: usize>: Sized + Copy {
-	fn from_be_bytes(bytes: [u8; BYTES]) -> Self;
-	fn from_le_bytes(bytes: [u8; BYTES]) -> Self;
-	fn to_be_bytes(self) -> [u8; BYTES];
-	fn to_le_bytes(self) -> [u8; BYTES];
+#[allow(private_in_public)]
+trait Length {
+	const LEN: usize;
+}
+impl<T, const LENGTH: usize> Length for [T; LENGTH] {
+	const LEN: usize = LENGTH;
+}
+
+pub trait ConvertBytes: Sized + Copy + Default {
+	type Bytes: Length + core::ops::IndexMut<usize, Output = u8> + Copy;
+	const BYTES: usize = Self::Bytes::LEN;
+	fn from_be_bytes(bytes: Self::Bytes) -> Self;
+	fn from_le_bytes(bytes: Self::Bytes) -> Self;
+	fn to_be_bytes(self) -> Self::Bytes;
+	fn to_le_bytes(self) -> Self::Bytes;
 	fn slice_from_be_bytes(bytes: &[u8]) -> Vec<Self> {
 		let mut i: usize = 0;
-		let mut n: [u8; BYTES] = [0; BYTES];
-		let mut result = Vec::<Self>::with_capacity(bytes.len() / BYTES);
+		let mut n: Self::Bytes = Self::default().to_be_bytes();
+		let mut result = Vec::<Self>::with_capacity(bytes.len() / Self::BYTES);
 		for b in bytes {
 			n[i] = *b;
 			i += 1;
-			if i == BYTES {
+			if i == Self::BYTES {
 				i = 0;
 				result.push(Self::from_be_bytes(n));
 			}
@@ -74,12 +84,12 @@ pub trait ConvertBytes<const BYTES: usize>: Sized + Copy {
 	}
 	fn slice_from_le_bytes(bytes: &[u8]) -> Vec<Self> {
 		let mut i: usize = 0;
-		let mut n: [u8; BYTES] = [0; BYTES];
-		let mut result = Vec::<Self>::with_capacity(bytes.len() / BYTES);
+		let mut n: Self::Bytes = Self::default().to_le_bytes();
+		let mut result = Vec::<Self>::with_capacity(bytes.len() / Self::BYTES);
 		for b in bytes {
 			n[i] = *b;
 			i += 1;
-			if i == BYTES {
+			if i == Self::BYTES {
 				i = 0;
 				result.push(Self::from_le_bytes(n));
 			}
@@ -87,30 +97,30 @@ pub trait ConvertBytes<const BYTES: usize>: Sized + Copy {
 		result
 	}
 	fn to_be_bytes_array<const N: usize, const M: usize>(a: [Self; N]) -> [u8; M] {
-		assert_eq!(BYTES*N, M);
+		assert_eq!(Self::BYTES*N, M);
 		let mut result: [u8; M] = [0; M];
 		for i in 0..N {
 			let bytes = a[i].to_be_bytes();
-			for j in 0..BYTES {
-				result[BYTES*i+j] = bytes[j];
+			for j in 0..Self::BYTES {
+				result[Self::BYTES*i+j] = bytes[j];
 			}
 		}
 		result
 	}
 	fn to_le_bytes_array<const N: usize, const M: usize>(a: [Self; N]) -> [u8; M] {
-		assert_eq!(BYTES*N, M);
+		assert_eq!(Self::BYTES*N, M);
 		let mut result: [u8; M] = [0; M];
 		for i in 0..N {
 			let bytes = a[i].to_le_bytes();
-			for j in 0..BYTES {
-				result[BYTES*i+j] = bytes[j];
+			for j in 0..Self::BYTES {
+				result[Self::BYTES*i+j] = bytes[j];
 			}
 		}
 		result
 	}
 	fn from_bits(bs: Bits) -> Self {
-		assert!(bs.len() <= 8*BYTES);
-		let mut bytes: [u8; BYTES] = [0; BYTES];
+		assert!(bs.len() <= 8*Self::BYTES);
+		let mut bytes: Self::Bytes = Self::default().to_le_bytes();
 		let mut i: usize = 0;
 		let mut n: usize = 0;
 		for b in bs.0 {
@@ -148,17 +158,18 @@ macro_rules! simple_word_convert_impl {
 }
 macro_rules! simple_word_convert_bytes_impl {
 	{$t:tt, $u:tt, $n:literal} => {
-		impl ConvertBytes<$n> for $t {
-			fn from_be_bytes(bytes: [u8; $n]) -> Self {
+		impl ConvertBytes for $t {
+			type Bytes = [u8; $n];
+			fn from_be_bytes(bytes: Self::Bytes) -> Self {
 				Self($u::from_be_bytes(bytes))
 			}
-			fn from_le_bytes(bytes: [u8; $n]) -> Self {
+			fn from_le_bytes(bytes: Self::Bytes) -> Self {
 				Self($u::from_le_bytes(bytes))
 			}
-			fn to_be_bytes(self) -> [u8; $n] {
+			fn to_be_bytes(self) -> Self::Bytes {
 				self.0.to_be_bytes()
 			}
-			fn to_le_bytes(self) -> [u8; $n] {
+			fn to_le_bytes(self) -> Self::Bytes {
 				self.0.to_le_bytes()
 			}
 		}
@@ -272,7 +283,7 @@ macro_rules! simple_word_ops_impl {
 }
 macro_rules! create_simple_word {
 	{$t:tt, $u:tt, $n:literal} => {
-		#[derive(PartialEq, Eq, Clone, Copy)]
+		#[derive(PartialEq, Eq, Clone, Copy, Default)]
 		pub struct $t($u);
 		simple_word_convert_impl!{$t, $u}
 		simple_word_convert_bytes_impl!{$t, $u, $n}
@@ -285,7 +296,7 @@ create_simple_word!{Word32, u32, 4}
 create_simple_word!{Word64, u64, 8}
 create_simple_word!{Word128, u128, 16}
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Default)]
 pub struct Word256(u128, u128);
 impl From<&str> for Word256 {
 	fn from(s: &str) -> Self {
@@ -336,8 +347,9 @@ impl From<u128> for Word256 {
 		Self(n, 0)
 	}
 }
-impl ConvertBytes<32> for Word256 {
-	fn from_be_bytes(bytes: [u8; 32]) -> Self {
+impl ConvertBytes for Word256 {
+	type Bytes = [u8; 32];
+	fn from_be_bytes(bytes: Self::Bytes) -> Self {
 		let mut v: [u8; 16] = [0; 16];
 		v.copy_from_slice(&bytes[0..16]);
 		let n1 = u128::from_be_bytes(v);
@@ -345,7 +357,7 @@ impl ConvertBytes<32> for Word256 {
 		let n0 = u128::from_be_bytes(v);
 		Self(n0, n1)
 	}
-	fn from_le_bytes(bytes: [u8; 32]) -> Self {
+	fn from_le_bytes(bytes: Self::Bytes) -> Self {
 		let mut v: [u8; 16] = [0; 16];
 		v.copy_from_slice(&bytes[0..16]);
 		let n0 = u128::from_le_bytes(v);
@@ -353,14 +365,14 @@ impl ConvertBytes<32> for Word256 {
 		let n1 = u128::from_le_bytes(v);
 		Self(n0, n1)
 	}
-	fn to_be_bytes(self) -> [u8; 32] {
+	fn to_be_bytes(self) -> Self::Bytes {
 		let mut result: [u8; 32] = [0; 32];
 		let (v1, v0) = result.split_at_mut(16);
 		v0.copy_from_slice(&self.0.to_be_bytes());
 		v1.copy_from_slice(&self.1.to_be_bytes());
 		result
 	}
-	fn to_le_bytes(self) -> [u8; 32] {
+	fn to_le_bytes(self) -> Self::Bytes {
 		let mut result: [u8; 32] = [0; 32];
 		let (v0, v1) = result.split_at_mut(16);
 		v0.copy_from_slice(&self.0.to_le_bytes());
@@ -395,7 +407,7 @@ impl Add for Word256 {
 	}
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Default)]
 pub struct Word512(u128, u128, u128, u128);
 impl From<&str> for Word512 {
 	fn from(s: &str) -> Self {
@@ -450,8 +462,9 @@ impl From<u128> for Word512 {
 		Self(n, 0, 0, 0)
 	}
 }
-impl ConvertBytes<64> for Word512 {
-	fn from_be_bytes(bytes: [u8; 64]) -> Self {
+impl ConvertBytes for Word512 {
+	type Bytes = [u8; 64];
+	fn from_be_bytes(bytes: Self::Bytes) -> Self {
 		let mut v: [u8; 16] = [0; 16];
 		v.copy_from_slice(&bytes[0..16]);
 		let n3 = u128::from_be_bytes(v);
@@ -463,7 +476,7 @@ impl ConvertBytes<64> for Word512 {
 		let n0 = u128::from_be_bytes(v);
 		Self(n0, n1, n2, n3)
 	}
-	fn from_le_bytes(bytes: [u8; 64]) -> Self {
+	fn from_le_bytes(bytes: Self::Bytes) -> Self {
 		let mut v: [u8; 16] = [0; 16];
 		v.copy_from_slice(&bytes[0..16]);
 		let n0 = u128::from_le_bytes(v);
@@ -475,7 +488,7 @@ impl ConvertBytes<64> for Word512 {
 		let n3 = u128::from_le_bytes(v);
 		Self(n0, n1, n2, n3)
 	}
-	fn to_be_bytes(self) -> [u8; 64] {
+	fn to_be_bytes(self) -> Self::Bytes {
 		let mut result: [u8; 64] = [0; 64];
 		let (v3, v210) = result.split_at_mut(16);
 		let (v2, v10) = v210.split_at_mut(16);
@@ -486,7 +499,7 @@ impl ConvertBytes<64> for Word512 {
 		v3.copy_from_slice(&self.3.to_be_bytes());
 		result
 	}
-	fn to_le_bytes(self) -> [u8; 64] {
+	fn to_le_bytes(self) -> Self::Bytes {
 		let mut result: [u8; 64] = [0; 64];
 		let (v0, v123) = result.split_at_mut(16);
 		let (v1, v23) = v123.split_at_mut(16);
