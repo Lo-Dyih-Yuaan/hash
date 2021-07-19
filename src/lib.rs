@@ -11,3 +11,5 @@ pub mod sha2;
 pub mod tiger;
 pub mod gost94;
 pub mod stribog;
+pub mod panama;
+pub mod whirlpool;
