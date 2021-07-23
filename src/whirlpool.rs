@@ -20,6 +20,20 @@ fn amu(b: [[u8; 8]; 8]) -> Word512 {
 	Word512::from_be_bytes(temp)
 }
 
+//有限域GF(2^8)上模x^8+x^4+x^3+x^2+1乘法
+#[inline]
+fn mul(a: u8, b: u8) -> u8 {
+	let (mut a, mut b) = (a, b);
+	let mut p = 0u8;
+	while a != 0 && b != 0 {
+		if b & 1 != 0 {
+			p ^= a;
+		}
+		a = (a << 1) ^ if a > 0x7f {0x1d} else {0};
+		b >>= 1;
+	}
+	p
+}
 const S: [u8; 256] = [
 	0x18, 0x23, 0xc6, 0xE8, 0x87, 0xB8, 0x01, 0x4F, 0x36, 0xA6, 0xd2, 0xF5, 0x79, 0x6F, 0x91, 0x52,
 	0x60, 0xBc, 0x9B, 0x8E, 0xA3, 0x0c, 0x7B, 0x35, 0x1d, 0xE0, 0xd7, 0xc2, 0x2E, 0x4B, 0xFE, 0x57,
@@ -82,33 +96,11 @@ macro_rules! generate_hash {
 				temp
 			}
 			fn theta(n: [[u8; 8]; 8]) -> [[u8; 8]; 8] {
-				fn mul(a: u8, b: u8) -> u8 {
-					let (mut a, mut b) = (a, b);
-					let mut p = 0u8;
-					while a != 0 && b != 0 {
-						if b & 1 != 0 {
-							p ^= a;
-						}
-						a = (a << 1) ^ if a > 0x7f {0x1d} else {0};
-						b >>= 1;
-					}
-					p
-				}
-				const C: [[u8; 8]; 8] = [
-					[$l[0], $l[1], $l[2], $l[3], $l[4], $l[5], $l[6], $l[7]],
-					[$l[7], $l[0], $l[1], $l[2], $l[3], $l[4], $l[5], $l[6]],
-					[$l[6], $l[7], $l[0], $l[1], $l[2], $l[3], $l[4], $l[5]],
-					[$l[5], $l[6], $l[7], $l[0], $l[1], $l[2], $l[3], $l[4]],
-					[$l[4], $l[5], $l[6], $l[7], $l[0], $l[1], $l[2], $l[3]],
-					[$l[3], $l[4], $l[5], $l[6], $l[7], $l[0], $l[1], $l[2]],
-					[$l[2], $l[3], $l[4], $l[5], $l[6], $l[7], $l[0], $l[1]],
-					[$l[1], $l[2], $l[3], $l[4], $l[5], $l[6], $l[7], $l[0]],
-				];
 				let mut temp: [[u8; 8]; 8] = [[0; 8]; 8];
 				for i in 0..8 {
 					for j in 0..8 {
 						for k in 0..8 {
-							temp[i][j] = temp[i][j]^mul(n[i][k], C[k][j]);
+							temp[i][j] = temp[i][j]^mul(n[i][k], $l[(8-k+j)%8]);
 						}
 					}
 				}
