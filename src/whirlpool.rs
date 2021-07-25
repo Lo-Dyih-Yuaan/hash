@@ -155,3 +155,17 @@ macro_rules! generate_hash {
 generate_hash!{whirlpool, S, L}
 generate_hash!{whirlpool_t, S, L0}
 generate_hash!{whirlpool_0, S0, L0}
+
+#[test]
+fn generate_s_box() {
+	const E: [u8; 16] = [0x1, 0xB, 0x9, 0xC, 0xD, 0x6, 0xF, 0x3, 0xE, 0x8, 0x7, 0x4, 0xA, 0x2, 0x5, 0x0];
+	const R: [u8; 16] = [0x7, 0xC, 0xB, 0xD, 0xE, 0x4, 0x9, 0xF, 0x6, 0x3, 0x8, 0xA, 0x2, 0x5, 0x1, 0x0];
+	#[allow(non_snake_case)]
+	let mut invE = (0u8..16u8).collect::<Vec<_>>();
+	invE.sort_by_key(|&n| E[n as usize]);
+	assert_eq!(&S, (0..256).map(|i: usize| {
+		let (x, y) = (E[i >> 4], invE[i & 0xF]);
+		let u = R[(x^y) as usize];
+		(E[(x^u) as usize] << 4) | invE[(y^u) as usize]
+	}).collect::<Vec<_>>().as_slice());
+}
